@@ -109,6 +109,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private func makeStatusItemMenu() -> NSMenu {
     let menu = NSMenu()
 
+    let settings = NSMenuItem(
+      title: NSLocalizedString("Config", comment: ""),
+      action: #selector(self.openSettings), keyEquivalent: ",")
+    menu.addItem(settings)
+
+    menu.addItem(NSMenuItem.separator())
+
     let toggle = NSMenuItem(
       title: NSLocalizedString("Toggle input method", comment: ""),
       action: #selector(self.toggle), keyEquivalent: "")
@@ -156,5 +163,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   @objc func hide() {
     AppDelegate.statusItemMode = 0
     refreshStatusItemVisibility()
+  }
+
+  @objc func openSettings() {
+    CatalinaSettingsWindowController.open()
   }
 }

@@ -244,6 +244,11 @@ class FcitxInputController: IMKInputController {
     menu.addItem(NSMenuItem.separator())
 
     menu.addItem(
+      withTitle: NSLocalizedString("Config", comment: ""), action: #selector(openSettings(_:)),
+      keyEquivalent: "")
+    menu.addItem(NSMenuItem.separator())
+
+    menu.addItem(
       withTitle: NSLocalizedString("Restart", comment: ""), action: #selector(restart(_:)),
       keyEquivalent: "")
     return menu

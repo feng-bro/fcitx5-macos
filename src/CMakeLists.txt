@@ -45,6 +45,7 @@ add_executable(Fcitx5
     MACOSX_BUNDLE
     server.swift
     core.swift
+    settings.swift
     locale.swift
     controller.swift
     menu.swift

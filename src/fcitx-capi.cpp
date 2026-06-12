@@ -5,6 +5,7 @@
 #include <string>
 
 #include "fcitx.h"
+#include "config/config-public.h"
 #include "../macosfrontend/macosfrontend.h"
 #include "../keycode/keycode.h"
 
@@ -34,6 +35,8 @@ void fcitx_start(const char *locale) { start_fcitx_thread(locale); }
 void fcitx_stop(void) { stop_fcitx_thread(); }
 
 void fcitx_reload(void) { reload(); }
+
+void fcitx_setup_i18n_c(void) { setupI18N(); }
 
 void *fcitx_create_input_context(const char *app_id,
                                  const char *accent_color) {
@@ -109,6 +112,22 @@ char *fcitx_im_get_current_group(void) {
     return copyString(imGetCurrentGroup());
 }
 
+int32_t fcitx_im_group_count_c(void) { return imGroupCount(); }
+
+void fcitx_im_add_to_current_group_c(const char *im_name) {
+    imAddToCurrentGroup(im_name ? im_name : "");
+}
+
+char *fcitx_im_get_groups_c(void) { return copyString(imGetGroups()); }
+
+void fcitx_im_set_groups_c(const char *json) {
+    imSetGroups(json ? json : "[]");
+}
+
+char *fcitx_im_get_available_ims_c(void) {
+    return copyString(imGetAvailableIMs());
+}
+
 char *fcitx_im_get_current_im_name(void) {
     return copyString(imGetCurrentIMName());
 }
@@ -127,6 +146,16 @@ void fcitx_activate_action_by_id_c(int32_t id, bool hotkey) {
 
 char *fcitx_current_group_layout(void) {
     return copyString(get_current_group_layout());
+}
+
+char *fcitx_get_addons_c(void) { return copyString(getAddons()); }
+
+char *fcitx_config_get_config_c(const char *uri) {
+    return copyString(getConfig(uri ? uri : ""));
+}
+
+bool fcitx_config_set_config_c(const char *uri, const char *json_patch) {
+    return setConfig(uri ? uri : "", json_patch ? json_patch : "{}");
 }
 
 } // extern "C"

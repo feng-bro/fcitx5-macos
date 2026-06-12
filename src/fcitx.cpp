@@ -14,7 +14,6 @@
 #include <nlohmann/json.hpp>
 
 #include "fcitx.h"
-#include "../fcitx5-beast/src/beast.h"
 #include "../keycode/keycode.h"
 #include "config/config-public.h"
 #include "isocodes.h"
@@ -22,7 +21,9 @@
 
 namespace fs = std::filesystem;
 
+#ifndef APP_CONTENTS_PATH
 #define APP_CONTENTS_PATH "/Library/Input Methods/Fcitx5.app/Contents"
+#endif
 
 #define ISO_639_3_DOMAIN "iso_639-3"
 
@@ -97,10 +98,6 @@ void Fcitx::setup() {
     frontend_ =
         dynamic_cast<fcitx::MacosFrontend *>(addonMgr().addon("macosfrontend"));
     webpanel_ = dynamic_cast<fcitx::WebPanel *>(addonMgr().addon("webpanel"));
-    auto beast_ = dynamic_cast<fcitx::Beast *>(addonMgr().addon("beast"));
-    beast_->setConfigGetter(getConfig);
-    beast_->setConfigSetter(setConfig);
-    beast_->setRemoteHandler(remoteHandler);
 }
 
 void Fcitx::teardown() {
@@ -156,7 +153,10 @@ void Fcitx::setupEnv() {
     setenv("FCITX_ADDON_DIRS", fcitx_addon_dirs.c_str(), 1);
     setenv("XDG_DATA_DIRS", xdg_data_dirs.c_str(), 1);
     setenv("LIBIME_MODEL_DIRS", libime_model_dirs.c_str(), 1);
-    setenv("XKB_CONFIG_ROOT", APP_CONTENTS_PATH "/share/xkeyboard-config-2", 1);
+    setenv("XKB_CONFIG_ROOT",
+           (std::string(APP_CONTENTS_PATH) + "/share/xkeyboard-config-2")
+               .c_str(),
+           1);
     setenv("CHEWING_PATH", chewing_path.c_str(), 1);
 
     // Set LANGUAGE for libintl-lite.

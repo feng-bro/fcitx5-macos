@@ -5,31 +5,31 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/fcitx.icns"
     DESTINATION "${CMAKE_INSTALL_PREFIX}/Resources"
 )
 
-add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_26.pdf
-    COMMAND SOURCE_DATE_EPOCH=0 rsvg-convert -f pdf -o ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_26.pdf ${CMAKE_CURRENT_SOURCE_DIR}/penguin-26.svg
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/penguin-26.svg
-)
-add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_15.pdf
-    COMMAND SOURCE_DATE_EPOCH=0 rsvg-convert -f pdf -o ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_15.pdf ${CMAKE_CURRENT_SOURCE_DIR}/penguin-15.svg
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/penguin-15.svg
-)
-add_custom_target(GeneratePDF ALL
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_26.pdf ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_15.pdf
-)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/menu_icon_26.pdf"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/Resources"
-)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/menu_icon_15.pdf"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/Resources"
-)
-# When upgrade from old version, menu_icon.pdf will be used, so we have to make it the old version.
-# Afterwards, script will copy the correct one to overwrite it.
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/menu_icon_15.pdf"
-    RENAME menu_icon.pdf
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/Resources"
-)
+if(NOT FCITX5_MACOS_CATALINA_PORT)
+    add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_26.pdf
+        COMMAND SOURCE_DATE_EPOCH=0 rsvg-convert -f pdf -o ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_26.pdf ${CMAKE_CURRENT_SOURCE_DIR}/penguin-26.svg
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/penguin-26.svg
+    )
+    add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_15.pdf
+        COMMAND SOURCE_DATE_EPOCH=0 rsvg-convert -f pdf -o ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_15.pdf ${CMAKE_CURRENT_SOURCE_DIR}/penguin-15.svg
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/penguin-15.svg
+    )
+    add_custom_target(GeneratePDF ALL
+        DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_26.pdf ${CMAKE_CURRENT_BINARY_DIR}/menu_icon_15.pdf
+    )
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/menu_icon_26.pdf"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/Resources"
+    )
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/menu_icon_15.pdf"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/Resources"
+    )
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/menu_icon_15.pdf"
+        RENAME menu_icon.pdf
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/Resources"
+    )
+endif()
 
 # Preserve execution permission
 install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/uninstall.sh"
@@ -44,22 +44,28 @@ install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/fcitx5-curl"
     DESTINATION "${CMAKE_INSTALL_PREFIX}/bin"
 )
 
-install(DIRECTORY "${PREBUILDER_SHARE_DIR}/icons"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/share"
-)
+if(EXISTS "${PREBUILDER_SHARE_DIR}/icons")
+    install(DIRECTORY "${PREBUILDER_SHARE_DIR}/icons"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/share"
+    )
+endif()
 
-install(DIRECTORY "${PREBUILDER_SHARE_DIR}/iso-codes"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/share"
-)
+if(EXISTS "${PREBUILDER_SHARE_DIR}/iso-codes")
+    install(DIRECTORY "${PREBUILDER_SHARE_DIR}/iso-codes"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/share"
+    )
+endif()
 
 install(DIRECTORY "${PREBUILDER_SHARE_DIR}/xkeyboard-config-2"
     DESTINATION "${CMAKE_INSTALL_PREFIX}/share"
 )
 
 # iso_639-3.mo and xkeyboard-config.mo
-install(DIRECTORY "${PREBUILDER_SHARE_DIR}/locale"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/share"
-)
+if(EXISTS "${PREBUILDER_SHARE_DIR}/locale")
+    install(DIRECTORY "${PREBUILDER_SHARE_DIR}/locale"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/share"
+    )
+endif()
 
 #
 # Swift i18n through Localizable.strings
@@ -72,7 +78,9 @@ list(TRANSFORM LPROJS PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/" OUTPUT_VARIABLE LPR
 list(TRANSFORM LPROJ_DIRS APPEND "/Localizable.strings" OUTPUT_VARIABLE LOCALIZABLE_STRINGS_FILES)
 
 file(GLOB_RECURSE LOCALIZABLE_SWIFT_SOURCES ${PROJECT_SOURCE_DIR}/src/*.swift)
-list(APPEND LOCALIZABLE_SWIFT_SOURCES ${PROJECT_SOURCE_DIR}/macosnotifications/notify.swift)
+if(NOT FCITX5_MACOS_CATALINA_PORT)
+    list(APPEND LOCALIZABLE_SWIFT_SOURCES ${PROJECT_SOURCE_DIR}/macosnotifications/notify.swift)
+endif()
 add_custom_command(
     OUTPUT ${LOCALIZABLE_STRINGS_FILES}
     COMMAND genstrings ${LOCALIZABLE_SWIFT_SOURCES} -SwiftUI -o ${CMAKE_CURRENT_SOURCE_DIR}/en.lproj

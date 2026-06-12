@@ -1,10 +1,12 @@
 import AppKit
 import CxxFrontend
+import Darwin
+import FcitxBridge
 import InputMethodKit
 import Logging
 
-nonisolated(unsafe) private var u16pos = 0
-nonisolated(unsafe) private var currentPreedit = ""
+private var u16pos = 0
+private var currentPreedit = ""
 
 private let zeroWidthSpace = "\u{200B}"
 
@@ -38,31 +40,29 @@ private func isJetBrains(_ app: String) -> Bool {
   return app == "com.google.android.studio" || app.starts(with: "com.jetbrains.")
 }
 
-nonisolated(unsafe) private var controller: IMKInputController? = nil
+private var controller: IMKInputController? = nil
 
-nonisolated(unsafe) private var client: IMKTextInput? = nil
+private var client: IMKTextInput? = nil
 
 public func setController(_ ctrl: Any, _ cli: Any?) {
   controller = ctrl as? IMKInputController
   client = cli as? IMKTextInput
 }
 
-@MainActor
 private var statusItemCallback: ((Int32?, String?) -> Void)? = nil
 
-@MainActor
 public func setStatusItemCallback(_ callback: @escaping (Int32?, String?) -> Void) {
   statusItemCallback = callback
 }
 
 public func setStatusItemText(_ text: String) {
-  Task { @MainActor in
+  DispatchQueue.main.async {
     statusItemCallback?(nil, text)
   }
 }
 
 public func setStatusItemMode(_ mode: Int32) {
-  Task { @MainActor in
+  DispatchQueue.main.async {
     statusItemCallback?(mode, nil)
   }
 }
@@ -139,7 +139,7 @@ public func commitAndSetPreeditSync(
 public func commitAndSetPreeditAsync(
   _ commit: String, _ preedit: String, _ caretPos: Int, _ dummyPreedit: Bool
 ) {
-  Task { @MainActor in
+  DispatchQueue.main.async {
     guard let client = client else {
       return
     }
@@ -148,7 +148,7 @@ public func commitAndSetPreeditAsync(
 }
 
 public func commitAsync(_ commit: String) {
-  Task { @MainActor in
+  DispatchQueue.main.async {
     guard let client = client else {
       return
     }
@@ -228,8 +228,78 @@ public func getSelection() -> String {
 // 4. Switch input method: InputContextInputMethodActivated
 // 5. Update punctuation option: UserInterfaceComponent::StatusArea
 public func overrideKeyboardLayout() {
-  let layout = String(get_current_group_layout())
+  let layout = bridgeFcitxString(fcitx_current_group_layout())
   let appleLayout = layout == "PinyinKeyboard" ? "PinyinKeyboard" : layoutMap[layout] ?? "ABC"
   FCITX_DEBUG("Override keyboard layout to \(appleLayout)")
   client?.overrideKeyboard(withKeyboardNamed: "com.apple.keylayout.\(appleLayout)")
+}
+
+private func stringFromCString(_ raw: UnsafePointer<CChar>?) -> String {
+  guard let raw = raw else {
+    return ""
+  }
+  return String(cString: raw)
+}
+
+private func bridgeFcitxString(_ raw: UnsafeMutablePointer<CChar>?) -> String {
+  guard let raw = raw else {
+    return ""
+  }
+  let result = String(cString: raw)
+  fcitx_free_string(raw)
+  return result
+}
+
+@_cdecl("swift_frontend_override_keyboard_layout")
+public func swiftFrontendOverrideKeyboardLayout() {
+  overrideKeyboardLayout()
+}
+
+@_cdecl("swift_frontend_set_status_item_text")
+public func swiftFrontendSetStatusItemText(_ text: UnsafePointer<CChar>?) {
+  setStatusItemText(stringFromCString(text))
+}
+
+@_cdecl("swift_frontend_set_status_item_mode")
+public func swiftFrontendSetStatusItemMode(_ mode: Int32) {
+  setStatusItemMode(mode)
+}
+
+@_cdecl("swift_frontend_commit_async")
+public func swiftFrontendCommitAsync(_ commit: UnsafePointer<CChar>?) {
+  commitAsync(stringFromCString(commit))
+}
+
+@_cdecl("swift_frontend_commit_and_set_preedit_async")
+public func swiftFrontendCommitAndSetPreeditAsync(
+  _ commit: UnsafePointer<CChar>?, _ preedit: UnsafePointer<CChar>?, _ caretPos: Int32,
+  _ dummyPreedit: Int32
+) {
+  commitAndSetPreeditAsync(
+    stringFromCString(commit), stringFromCString(preedit), Int(caretPos),
+    dummyPreedit != 0)
+}
+
+@_cdecl("swift_frontend_get_caret_coordinates")
+public func swiftFrontendGetCaretCoordinates(
+  _ followCaret: Int32, _ outValues: UnsafeMutablePointer<Double>?, _ outCount: Int32
+) -> Int32 {
+  let values = getCaretCoordinates(followCaret != 0)
+  guard let outValues = outValues, outCount >= 3, values.count == 3 else {
+    return 0
+  }
+  outValues[0] = values[0]
+  outValues[1] = values[1]
+  outValues[2] = values[2]
+  return 3
+}
+
+@_cdecl("swift_frontend_get_selection")
+public func swiftFrontendGetSelection() -> UnsafeMutablePointer<CChar>? {
+  return strdup(getSelection())
+}
+
+@_cdecl("swift_frontend_free_string")
+public func swiftFrontendFreeString(_ s: UnsafeMutablePointer<CChar>?) {
+  free(s)
 }

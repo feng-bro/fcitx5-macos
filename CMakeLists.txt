@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 4.3)
+cmake_minimum_required(VERSION 4.0)
 
-set(CMAKE_OSX_DEPLOYMENT_TARGET 13.3)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
 if(NOT CMAKE_OSX_ARCHITECTURES)
     execute_process(COMMAND uname -m
         OUTPUT_VARIABLE CMAKE_OSX_ARCHITECTURES
@@ -13,6 +13,7 @@ project(fcitx5-macos VERSION 0.3.4 LANGUAGES CXX Swift)
 
 list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(FCITX5_MACOS_CATALINA_PORT ON)
 
 # On x86 /Library/Frameworks/Mono.framework will mess up libintl.
 set(CMAKE_FIND_FRAMEWORK LAST)
@@ -25,13 +26,15 @@ execute_process(COMMAND xcrun --sdk macosx --show-sdk-path
 add_compile_options(-target "${CMAKE_Swift_COMPILER_TARGET}")
 add_link_options(-target "${CMAKE_Swift_COMPILER_TARGET}")
 
-set(CMAKE_Swift_LANGUAGE_VERSION 6)
+set(CMAKE_Swift_LANGUAGE_VERSION 5)
 # Disallow InitializeSwift to execute link_directories which adds Xcode paths to rpath.
 set(SWIFT_LIBRARY_SEARCH_PATHS "")
 include(InitializeSwift)
 include(AddSwift)
 
 set(CMAKE_CXX_STANDARD 20)
+add_compile_definitions(FCITX5_MACOS_CATALINA_PORT)
+add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-DJSON_HAS_FILESYSTEM=0>")
 
 set(FIND_ROOT_PATH "${PROJECT_BINARY_DIR}/usr")
 set(PREBUILDER_INCLUDE_DIR "${FIND_ROOT_PATH}/include")
@@ -69,7 +72,14 @@ if(ENABLE_ASAN)
   include(AddressSanitizer)
 endif()
 
-set(APP_INSTALL_PATH "/Library/Input Methods")
+if(FCITX5_MACOS_CATALINA_PORT)
+    set(APP_INSTALL_PATH "$ENV{HOME}/Library/Input Methods")
+    add_library(LibIntlShim INTERFACE)
+    target_include_directories(LibIntlShim INTERFACE "${PROJECT_SOURCE_DIR}/deps/libintl-shim")
+    add_library(LibIntl::LibIntl ALIAS LibIntlShim)
+else()
+    set(APP_INSTALL_PATH "/Library/Input Methods")
+endif()
 set(CMAKE_INSTALL_PREFIX "${APP_INSTALL_PATH}/Fcitx5.app/Contents")
 set(FCITX_INSTALL_LOCALEDIR "${CMAKE_INSTALL_PREFIX}/share/locale")
 set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
@@ -107,7 +117,6 @@ include_directories(
 
 add_subdirectory(keycode)
 add_subdirectory(macosfrontend)
-add_subdirectory(macosnotifications)
 
 option(BUILD_PREVIEW "" OFF)
 add_subdirectory(fcitx5-webview)
@@ -115,11 +124,10 @@ add_subdirectory(webpanel)
 
 set(BUILD_SHARED_FCITX_ADDON OFF)
 include(fcitx5/src/lib/fcitx-utils/Fcitx5Macros.cmake)
-add_subdirectory(fcitx5-beast)
 
 add_subdirectory(src)
 
-set(FCITX5_AID_TARGETS macosfrontend notifications webpanel Fcitx5Objs)
+set(FCITX5_AID_TARGETS macosfrontend webpanel Fcitx5Objs)
 fcitx5_add_i18n_definition(
     LOCALE_INSTALL_DIR "${FCITX_INSTALL_LOCALEDIR}"
     TARGETS "${FCITX5_AID_TARGETS}"
@@ -131,7 +139,8 @@ endforeach()
 add_subdirectory(assets)
 add_subdirectory(po)
 
-enable_testing()
-add_subdirectory(tests)
-
-add_subdirectory(appium)
+if(NOT FCITX5_MACOS_CATALINA_PORT)
+    enable_testing()
+    add_subdirectory(tests)
+    add_subdirectory(appium)
+endif()

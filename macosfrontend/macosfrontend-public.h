@@ -1,9 +1,10 @@
 #pragma once
 
+#include <stdint.h>
+
+#ifdef __cplusplus
 #include <array>
 #include <string>
-
-// Identical to fcitx::ICUUID. Replicated for Swift interop.
 typedef std::array<uint8_t, 16> ICUUID;
 
 // Though being UInt, 32b is enough for modifiers
@@ -19,3 +20,4 @@ void focus_in(ICUUID uuid, bool isPassword) noexcept;
 std::string commit_composition(ICUUID uuid) noexcept;
 void focus_out(ICUUID uuid) noexcept;
 std::string get_current_group_layout() noexcept;
+#endif

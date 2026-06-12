@@ -4,13 +4,11 @@
 #
 set(TRANSLATABLE_CXX_SOURCES
     macosfrontend/macosfrontend.h
-    macosnotifications/macosnotifications.h
     webpanel/webpanel.h
 )
 
 set(TRANSLATABLE_CONFIG_SOURCES
     macosfrontend/macosfrontend.conf.in.in
-    macosnotifications/notifications.conf.in.in
 )
 
 list(TRANSFORM TRANSLATABLE_CXX_SOURCES PREPEND "${PROJECT_SOURCE_DIR}/" OUTPUT_VARIABLE TRANSLATABLE_CXX_SOURCES_FULL_PATH)
@@ -27,4 +25,6 @@ add_custom_target(pot
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/base.pot
 )
 
-fcitx5_install_translation(fcitx5-macos)
+if(NOT FCITX5_MACOS_CATALINA_PORT)
+    fcitx5_install_translation(fcitx5-macos)
+endif()

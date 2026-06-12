@@ -50,7 +50,7 @@ uint32_t Notifications::sendNotification(
 
     // Record a notification item to store callbacks.
     auto internalId = ++internalId_;
-    auto externalId = std::format("{}-{}", appName, internalId_);
+    auto externalId = appName + "-" + std::to_string(internalId_);
     NotificationItem item{externalId, internalId, actionCallback,
                           closedCallback};
     itemTable_.insert(item);

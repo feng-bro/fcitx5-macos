@@ -8,9 +8,10 @@
 #include "macosfrontend.h"
 #include "fcitx.h"
 #include "keycode.h"
-#include "macosfrontend-swift.h"
+#include "swift-bridge.h"
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <algorithm>
 #include <fcitx-utils/event.h>
 #include <fcitx/addonmanager.h>
 #include <fcitx/inputcontext.h>
@@ -30,7 +31,7 @@ bool rimePunctuation = false;
 
 void overrideKeyboardLayoutAsync() {
     dispatch_async(dispatch_get_main_queue(), ^{
-      SwiftFrontend::overrideKeyboardLayout();
+      swift_frontend_override_keyboard_layout();
     });
 }
 
@@ -70,7 +71,7 @@ void MacosFrontend::updateStatusItemText() {
         }
         if (statusItemText != display) {
             statusItemText = std::move(display);
-            SwiftFrontend::setStatusItemText(statusItemText);
+            swift_frontend_set_status_item_text(statusItemText.c_str());
         }
     }
 }
@@ -92,7 +93,9 @@ void MacosFrontend::pollPasteboard() {
             }
 
             dispatch_async(dispatch_get_main_queue(), ^{
-              std::string selection = SwiftFrontend::getSelection();
+              char *selectionPtr = swift_frontend_get_selection();
+              std::string selection = selectionPtr ? selectionPtr : "";
+              swift_frontend_free_string(selectionPtr);
               if (selection.empty()) {
                   return;
               }
@@ -132,7 +135,7 @@ void MacosFrontend::pollPasteboard() {
 }
 
 void MacosFrontend::updateConfig() {
-    SwiftFrontend::setStatusItemMode(int(*config_.statusBar));
+    swift_frontend_set_status_item_mode(int(*config_.statusBar));
     simulateKeyRelease_ = config_.simulateKeyRelease.value();
     simulateKeyReleaseDelay_ =
         static_cast<long>(config_.simulateKeyReleaseDelay.value()) * 1000L;
@@ -168,6 +171,13 @@ std::string MacosFrontend::keyEvent(ICUUID uuid, const Key &key, bool isRelease,
                                     bool isPassword, const char *text,
                                     unsigned int cursor, unsigned int anchor) {
     auto *ic = this->findIC(uuid);
+    return keyEvent(ic, key, isRelease, isPassword, text, cursor, anchor);
+}
+
+std::string MacosFrontend::keyEvent(MacosInputContext *ic, const Key &key,
+                                    bool isRelease, bool isPassword,
+                                    const char *text, unsigned int cursor,
+                                    unsigned int anchor) {
     if (!ic) {
         return "{}";
     }
@@ -212,7 +222,7 @@ std::string MacosFrontend::keyEvent(ICUUID uuid, const Key &key, bool isRelease,
             // dummy preedit.
             keepVimPreedit = true;
             imSetCurrentIM("keyboard-us");
-        } else if (!ic->inputPanel().transient() && ic->inputPanel().empty()) {
+        } else if (ic->inputPanel().empty()) {
             // HACK: For Terminal and iTerm, when pressing an handled ctrl, we
             // force a dummy preedit so that the following c or [ could be
             // processed by fcitx. It's known that Esc won't work in Terminal,
@@ -241,11 +251,17 @@ MacosInputContext *MacosFrontend::findIC(ICUUID uuid) {
 
 ICUUID MacosFrontend::createInputContext(const std::string &appId,
                                          const std::string &accentColor) {
+    return createInputContextPtr(appId, accentColor)->uuid();
+}
+
+MacosInputContext *
+MacosFrontend::createInputContextPtr(const std::string &appId,
+                                     const std::string &accentColor) {
     auto ic = new MacosInputContext(this, instance_->inputContextManager(),
                                     appId, accentColor);
     ic->setFocusGroup(&focusGroup_);
     FCITX_INFO() << "Create IC for " << appId;
-    return ic->uuid();
+    return ic;
 }
 
 void MacosFrontend::destroyInputContext(ICUUID uuid) {
@@ -268,6 +284,18 @@ void MacosFrontend::destroyInputContext(ICUUID uuid) {
     delete ic;
 }
 
+void MacosFrontend::destroyInputContext(MacosInputContext *ic) {
+    if (!ic) {
+        return;
+    }
+    if (ic->hasFocus()) {
+        ic->focusOut();
+        focusGroup_.setFocusedInputContext(nullptr);
+    }
+    FCITX_INFO() << "Destroy IC for " << ic->program();
+    delete ic;
+}
+
 void MacosFrontend::useAppDefaultIM(const std::string &appId) {
     auto it = appDefaultIMCache_.find(appId);
     if (it != appDefaultIMCache_.end()) {
@@ -278,11 +306,16 @@ void MacosFrontend::useAppDefaultIM(const std::string &appId) {
 void MacosFrontend::useVimMode(const std::string &appId,
                                MacosInputContext *ic) {
     const auto &vimMode = *config_.vimMode;
-    ic->setVimMode(std::ranges::find(vimMode, appId) != vimMode.end());
+    ic->setVimMode(std::find(vimMode.begin(), vimMode.end(), appId) !=
+                   vimMode.end());
 }
 
 void MacosFrontend::focusIn(ICUUID uuid, bool isPassword) {
     auto *ic = findIC(uuid);
+    focusIn(ic, isPassword);
+}
+
+void MacosFrontend::focusIn(MacosInputContext *ic, bool isPassword) {
     if (!ic)
         return;
     webpanel_->applyAppAccentColor(ic->getAccentColor()); // app-specific
@@ -308,6 +341,10 @@ void MacosFrontend::focusIn(ICUUID uuid, bool isPassword) {
 
 std::string MacosFrontend::commitComposition(ICUUID uuid) {
     auto *ic = findIC(uuid);
+    return commitComposition(ic);
+}
+
+std::string MacosFrontend::commitComposition(MacosInputContext *ic) {
     if (!ic)
         return "{}";
 
@@ -332,6 +369,10 @@ std::string MacosFrontend::commitComposition(ICUUID uuid) {
 
 void MacosFrontend::focusOut(ICUUID uuid) {
     auto *ic = findIC(uuid);
+    focusOut(ic);
+}
+
+void MacosFrontend::focusOut(MacosInputContext *ic) {
     if (!ic)
         return;
     FCITX_INFO() << "Focus out " << ic->program();
@@ -379,7 +420,7 @@ void MacosInputContext::commitStringImpl(const std::string &text) {
     if (!isSyncEvent) {
         // When changing this, test Messages.app by clicking a candidate.
         // Previously buggy behavior is that preedit is appended after commit.
-        SwiftFrontend::commitAsync(state_.commit);
+        swift_frontend_commit_async(state_.commit.c_str());
         resetState();
     }
 }
@@ -423,16 +464,18 @@ std::string MacosInputContext::popState(bool accepted, const Key &key) {
 void MacosInputContext::commitAndSetPreeditAsync() {
     auto state = state_;
     resetState();
-    SwiftFrontend::commitAndSetPreeditAsync(state.commit, state.preedit,
-                                            state.caretPos, state.dummyPreedit);
+    swift_frontend_commit_and_set_preedit_async(
+        state.commit.c_str(), state.preedit.c_str(), state.caretPos,
+        state.dummyPreedit ? 1 : 0);
 }
 
 std::tuple<double, double, double>
 MacosInputContext::getCaretCoordinates(bool followCaret) {
     // Memorize to avoid jumping to origin on failure.
     static double x = 0, y = 0, height = 0;
-    auto res = SwiftFrontend::getCaretCoordinates(followCaret);
-    if (res.getCount() == 3) {
+    double res[3] = {0, 0, 0};
+    if (swift_frontend_get_caret_coordinates(followCaret ? 1 : 0, res, 3) ==
+        3) {
         x = res[0];
         y = res[1];
         height = res[2];

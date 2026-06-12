@@ -1,9 +1,7 @@
 import Cocoa
-import Fcitx
-import FcitxConfigUI
+import FcitxBridge
 import InputMethodKit
 import SwiftFrontend
-import SwiftNotify
 
 class NSManualApplication: NSApplication {
   private let appDelegate = AppDelegate()
@@ -39,20 +37,16 @@ private func signalHandler(signal: Int32) {
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
-  nonisolated(unsafe) static var server: IMKServer!
-  nonisolated(unsafe) static var notificationDelegate: NotificationDelegate!
-  nonisolated(unsafe) static var statusItem: NSStatusItem?
-  nonisolated(unsafe) static var statusItemText: String = "🐧"
-  nonisolated(unsafe) static var statusItemMode: Int32 = 0
+  static var server: IMKServer!
+  static var statusItem: NSStatusItem?
+  static var statusItemText: String = "F"
+  static var statusItemMode: Int32 = 0
 
   private static let inputSourceChangedNotification = Notification.Name(
     rawValue: kTISNotifySelectedKeyboardInputSourceChanged as String)
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     redirectStderr()
-
-    // Once process started, WKWebView doesn't accept new font files. Record and prompt user restart if needed.
-    initUserFontFamiliesOnStart()
 
     signal(SIGTERM, signalHandler)
 
@@ -76,17 +70,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       name: Bundle.main.infoDictionary?["InputMethodConnectionName"] as? String,
       bundleIdentifier: Bundle.main.bundleIdentifier)
 
-    // Initialize notifications.
-    AppDelegate.notificationDelegate = NotificationDelegate()
-    AppDelegate.notificationDelegate.requestAuthorization()
-
     let locale = getLocale()
-    start_fcitx_thread(locale)
+    fcitx_start(locale)
   }
 
   func applicationWillTerminate(_ notification: Notification) {
     DistributedNotificationCenter.default().removeObserver(self)
-    stop_fcitx_thread()
+    fcitx_stop()
   }
 
   private func isFcitxSelectedInputSource() -> Bool {
@@ -99,7 +89,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     return bundleId == Bundle.main.bundleIdentifier
   }
 
-  @MainActor
   private func removeStatusItem() {
     if let statusItem = AppDelegate.statusItem {
       NSStatusBar.system.removeStatusItem(statusItem)
@@ -107,7 +96,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  @MainActor
   private func ensureStatusItem() -> NSStatusItem {
     if let statusItem = AppDelegate.statusItem {
       return statusItem
@@ -118,14 +106,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     return statusItem
   }
 
-  @MainActor
   private func makeStatusItemMenu() -> NSMenu {
     let menu = NSMenu()
 
     let toggle = NSMenuItem(
       title: NSLocalizedString("Toggle input method", comment: ""),
       action: #selector(self.toggle), keyEquivalent: "")
-    toggle.image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
     menu.addItem(toggle)
 
     menu.addItem(NSMenuItem.separator())
@@ -133,13 +119,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let hide = NSMenuItem(
       title: NSLocalizedString("Hide", comment: ""),
       action: #selector(self.hide), keyEquivalent: "")
-    hide.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: nil)
     menu.addItem(hide)
 
     return menu
   }
 
-  @MainActor
   private func refreshStatusItemVisibility() {
     guard AppDelegate.statusItemMode != 0, isFcitxSelectedInputSource() else {
       removeStatusItem()
@@ -161,7 +145,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  @MainActor
   @objc private func inputSourceChanged(_ notification: Notification) {
     refreshStatusItemVisibility()
   }
@@ -170,13 +153,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     toggleInputMethod()
   }
 
-  @MainActor
   @objc func hide() {
-    Fcitx.setConfig("fcitx://config/addon/macosfrontend", "{\"StatusBar\": \"Hidden\"}")
-    ConfigWindowController.refreshAll()  // Refresh Advanced.
-    sendNotification(
-      "status-item-hidden", "", NSLocalizedString("Status bar is hidden", comment: ""),
-      NSLocalizedString("You may re-enable it in Advanced → macOS Frontend.", comment: ""), [], 8000
-    )
+    AppDelegate.statusItemMode = 0
+    refreshStatusItemVisibility()
   }
 }

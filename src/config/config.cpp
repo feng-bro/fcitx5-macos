@@ -31,7 +31,7 @@ std::string getConfig(const std::string &uri) {
                if (uri == globalConfigPath) {
                    auto &config = fcitx.instance()->globalConfig().config();
                    return configToJson(config);
-               } else if (uri.starts_with(addonConfigPrefix)) {
+               } else if (uri.rfind(addonConfigPrefix, 0) == 0) {
                    auto [addonName, subPath] = parseAddonUri(uri);
                    auto *addonInfo = fcitx.addonMgr().addonInfo(addonName);
                    if (!addonInfo) {
@@ -54,7 +54,7 @@ std::string getConfig(const std::string &uri) {
                                              addonName + "\""}};
                    }
                    return configToJson(*config);
-               } else if (uri.starts_with(imConfigPrefix)) {
+               } else if (uri.rfind(imConfigPrefix, 0) == 0) {
                    auto imName = uri.substr(sizeof(imConfigPrefix) - 1);
                    auto *entry =
                        fcitx.instance()->inputMethodManager().entry(imName);
@@ -101,7 +101,7 @@ bool setConfig(const char *uri_, const char *json_) {
                 return false;
             }
         });
-    } else if (uri.starts_with(addonConfigPrefix)) {
+    } else if (uri.rfind(addonConfigPrefix, 0) == 0) {
         return with_fcitx([&](Fcitx &fcitx) {
             auto [addonName, subPath] = parseAddonUri(uri);
             auto *addon =
@@ -119,7 +119,7 @@ bool setConfig(const char *uri_, const char *json_) {
                 return false;
             }
         });
-    } else if (uri.starts_with(imConfigPrefix)) {
+    } else if (uri.rfind(imConfigPrefix, 0) == 0) {
         return with_fcitx([&](Fcitx &fcitx) {
             auto im = uri.substr(sizeof(imConfigPrefix) - 1);
             const auto *entry =

@@ -8,10 +8,9 @@ execute_process(COMMAND git show --no-patch --format=%ct
 )
 configure_file(config/meta.swift.in ${CMAKE_CURRENT_SOURCE_DIR}/config/meta.swift @ONLY)
 
-file(GLOB CONFIG_UI_FILES CONFIGURE_DEPENDS config/*.swift)
-
 add_library(Fcitx5Objs STATIC
     fcitx.cpp
+    fcitx-capi.cpp
     layout.cpp
     remote.cpp
     tunnel.cpp
@@ -30,31 +29,22 @@ if(KEY_LOGGING)
     target_compile_definitions(Fcitx5Objs PRIVATE KEY_LOGGING)
 endif()
 
+target_compile_definitions(Fcitx5Objs PRIVATE
+    APP_CONTENTS_PATH="${CMAKE_INSTALL_PREFIX}"
+)
+
 target_link_libraries(Fcitx5Objs
     Fcitx5::Core
     keyboard
     webpanel
-    beast
     macosfrontend
-    notifications
     WebviewCandidateWindow
-)
-
-# Config UI library - compiled once, linked by both Fcitx5 and Fcitx5TestApp
-add_library(FcitxConfigUI STATIC
-    ${CONFIG_UI_FILES}
-)
-
-target_link_libraries(FcitxConfigUI PUBLIC
-    Fcitx5Objs
-    Logging
-    AlertToast
-    SwiftFrontend
 )
 
 add_executable(Fcitx5
     MACOSX_BUNDLE
     server.swift
+    core.swift
     locale.swift
     controller.swift
     menu.swift
@@ -63,13 +53,14 @@ add_executable(Fcitx5
 )
 
 target_link_libraries(Fcitx5
-    FcitxConfigUI
-    SwiftNotify
+    Fcitx5Objs
+    Logging
+    SwiftFrontend
 )
 
 fcitx5_import_addons(Fcitx5
     REGISTRY_VARNAME getStaticAddon
-    ADDONS beast keyboard webpanel macosfrontend notifications
+    ADDONS keyboard webpanel macosfrontend
 )
 
 set(APP_PATH "${CMAKE_CURRENT_BINARY_DIR}/Fcitx5.app/Contents")

@@ -1,4 +1,4 @@
 module CxxFrontend {
-  header "macosfrontend-public.h"
+  header "frontend-capi.h"
   export *
 }

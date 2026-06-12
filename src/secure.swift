@@ -9,7 +9,7 @@ import IOKit
 // in swift repl, then this function returns terminal app's pid.
 // However, after Ctrl+Cmd+Q and re-login, it returns com.apple.loginwindow's pid.
 func getSecureInputProcessPID() -> Int32? {
-  let rootService = IORegistryGetRootEntry(kIOMainPortDefault)
+  let rootService = IORegistryGetRootEntry(kIOMasterPortDefault)
   guard rootService != 0 else { return nil }
 
   defer { IOObjectRelease(rootService) }

@@ -524,8 +524,7 @@ void WebPanel::updateClient(InputContext *ic) {
     if (auto macosIC = dynamic_cast<MacosInputContext *>(ic)) {
         // Don't set dummy preedit when switching IM. It will clear current cell
         // in LibreOffice.
-        macosIC->setDummyPreedit(bool(panelShow_) &&
-                                 !macosIC->inputPanel().transient());
+        macosIC->setDummyPreedit(bool(panelShow_));
         if (!macosIC->isSyncEvent) {
             macosIC->commitAndSetPreeditAsync();
         }

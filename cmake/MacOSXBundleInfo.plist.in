@@ -4,8 +4,14 @@
 <dict>
   <key>CFBundleIdentifier</key>
   <string>org.fcitx.inputmethod.Fcitx5</string>
+  <key>CFBundleExecutable</key>
+  <string>Fcitx5</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
   <key>CFBundleName</key>
   <string>Fcitx5</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
   <key>CFBundleDisplayName</key>
   <string>Fcitx5</string>
   <key>CFBundleIconFile</key>
@@ -31,7 +37,7 @@
     <string>Latn</string>
   </array>
   <key>tsInputMethodIconFileKey</key>
-  <string>menu_icon.pdf</string>
+  <string>fcitx.icns</string>
   <key>ComponentInputModeDict</key>
   <dict>
     <key>tsInputModeListKey</key>
@@ -40,11 +46,11 @@
       <dict>
         <!-- register as English to enable on browser password field/Terminal sudo password input -->
         <key>tsInputModeMenuIconFileKey</key>
-        <string>menu_icon.pdf</string>
+        <string>fcitx.icns</string>
         <key>tsInputModeAlternateMenuIconFileKey</key>
-        <string>menu_icon.pdf</string>
+        <string>fcitx.icns</string>
         <key>tsInputModePaletteIconFileKey</key>
-        <string>menu_icon.pdf</string>
+        <string>fcitx.icns</string>
       </dict>
       <key>org.fcitx.inputmethod.zhHans</key>
       <dict>
@@ -52,11 +58,11 @@
         <key>TISIntendedLanguage</key>
         <string>zh-Hans</string>
         <key>tsInputModeMenuIconFileKey</key>
-        <string>menu_icon.pdf</string>
+        <string>fcitx.icns</string>
         <key>tsInputModeAlternateMenuIconFileKey</key>
-        <string>menu_icon.pdf</string>
+        <string>fcitx.icns</string>
         <key>tsInputModePaletteIconFileKey</key>
-        <string>menu_icon.pdf</string>
+        <string>fcitx.icns</string>
       </dict>
       <key>org.fcitx.inputmethod.zhHant</key>
       <dict>
@@ -64,11 +70,11 @@
         <key>TISIntendedLanguage</key>
         <string>zh-Hant</string>
         <key>tsInputModeMenuIconFileKey</key>
-        <string>menu_icon.pdf</string>
+        <string>fcitx.icns</string>
         <key>tsInputModeAlternateMenuIconFileKey</key>
-        <string>menu_icon.pdf</string>
+        <string>fcitx.icns</string>
         <key>tsInputModePaletteIconFileKey</key>
-        <string>menu_icon.pdf</string>
+        <string>fcitx.icns</string>
       </dict>
     </dict>
   </dict>

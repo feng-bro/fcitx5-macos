@@ -93,13 +93,22 @@ public:
 
     ICUUID createInputContext(const std::string &appId,
                               const std::string &accentColor);
+    MacosInputContext *createInputContextPtr(const std::string &appId,
+                                             const std::string &accentColor);
     void destroyInputContext(ICUUID);
+    void destroyInputContext(MacosInputContext *);
     std::string keyEvent(ICUUID, const Key &key, bool isRelease,
                          bool isPassword, const char *text, unsigned int cursor,
                          unsigned int anchor);
+    std::string keyEvent(MacosInputContext *, const Key &key, bool isRelease,
+                         bool isPassword, const char *text, unsigned int cursor,
+                         unsigned int anchor);
     void focusIn(ICUUID, bool isPassword);
+    void focusIn(MacosInputContext *, bool isPassword);
     std::string commitComposition(ICUUID uuid);
+    std::string commitComposition(MacosInputContext *);
     void focusOut(ICUUID);
+    void focusOut(MacosInputContext *);
 
 private:
     Instance *instance_;

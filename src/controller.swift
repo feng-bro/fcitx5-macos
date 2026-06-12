@@ -1,6 +1,5 @@
 import CxxFrontend
-import Fcitx
-import FcitxConfigUI
+import FcitxBridge
 import InputMethodKit
 import Logging
 import SwiftFrontend
@@ -17,7 +16,7 @@ let capsLock = NSEvent.ModifierFlags.capsLock.rawValue
 let shift = NSEvent.ModifierFlags.shift.rawValue
 
 class FcitxInputController: IMKInputController {
-  let uuid: ICUUID
+  let context: UnsafeMutableRawPointer?
   let appId: String
   let isPasswordOnlyApp: Bool
   let accentColor: String
@@ -37,7 +36,7 @@ class FcitxInputController: IMKInputController {
     self.isPasswordOnlyApp = isPasswordOnly(app: self.appId)
     self.accentColor = getAccentColor(appId)
     self.client = client
-    self.uuid = create_input_context(appId, accentColor)
+    self.context = fcitx_create_input_context(appId, accentColor)
     super.init(server: server, delegate: delegate, client: client)
     setController(self, self.client)
     // On Chrome's home page execute document.addEventListener('keydown', console.log),
@@ -48,14 +47,14 @@ class FcitxInputController: IMKInputController {
   }
 
   deinit {
-    destroy_input_context(uuid)
+    fcitx_destroy_input_context(context)
   }
 
   override func commitComposition(_ sender: Any!) {
     guard let client = client as? IMKTextInput else {
       return
     }
-    let res = String(commit_composition(uuid))
+    let res = bridgeString(fcitx_commit_composition(context))
     // Maybe commit and clear preedit synchronously if user switches to ABC by Ctrl+Space.
     // For Rime with CapsLock, the result will depend on ascii_composer/switch_key/Caps_Lock instead of fcitx5-rime config.
     let _ = processRes(client, res)
@@ -122,16 +121,16 @@ class FcitxInputController: IMKInputController {
       } else if (modsVal == 0 || modsVal == capsLock) && lastEventIsShiftPress && selectionChanged {
         // Shift release following press when text selection is changed.
         // Send a no-op key event to fcitx so that Shift+Click doesn't trigger im toggle.
-        process_key(uuid, 0, 0, 0, false, isPassword, surroundingText, cursor, anchor)
-      }
-      Task { @MainActor in
-        ModifierState.shared.shift = isShiftPress
+        fcitx_free_string(
+          fcitx_process_key(context, 0, 0, 0, false, isPassword, surroundingText, cursor, anchor))
       }
     }
     lastEventIsShiftPress = isShiftPress
     let res = String(
-      process_key(
-        uuid, unicode, modsVal, code, isRelease, isPassword, surroundingText, cursor, anchor))
+      bridgeString(
+        fcitx_process_key(
+          context, unicode, modsVal, code, isRelease, isPassword, surroundingText, cursor, anchor))
+    )
     return processRes(client, res)
   }
 
@@ -192,20 +191,20 @@ class FcitxInputController: IMKInputController {
     setController(self, self.client)
     // Make sure status bar is updated on click password input, before first key event.
     let isPassword = getSecureInputInfo(isOnFocus: true)
-    focus_in(uuid, isPassword)
+    fcitx_focus_in(context, isPassword)
     overrideKeyboardLayout()
   }
 
   override func deactivateServer(_ client: Any!) {
-    focus_out(uuid)
+    fcitx_focus_out(context)
   }
 
   override func menu() -> NSMenu! {
     let menu = NSMenu()
 
     // Group switcher
-    let groupNames = decodeJSON(String(Fcitx.imGetGroupNames()), [String]())
-    let currentGroupName = String(Fcitx.imGetCurrentGroupName())
+    let groupNames = decodeJSON(bridgeString(fcitx_im_get_group_names()), [String]())
+    let currentGroupName = bridgeString(fcitx_im_get_current_group_name())
     if groupNames.count > 1 {
       for groupName in groupNames {
         let item = NSMenuItem(title: groupName, action: #selector(switchGroup), keyEquivalent: "")
@@ -219,8 +218,8 @@ class FcitxInputController: IMKInputController {
     }
 
     // Input method switcher
-    let currentGroup = decodeJSON(String(Fcitx.imGetCurrentGroup()), [InputMethod]())
-    let currentIM = String(Fcitx.imGetCurrentIMName())
+    let currentGroup = decodeJSON(bridgeString(fcitx_im_get_current_group()), [InputMethod]())
+    let currentIM = bridgeString(fcitx_im_get_current_im_name())
     for inputMethod in currentGroup {
       let item = NSMenuItem(
         title: inputMethod.displayName,
@@ -236,7 +235,7 @@ class FcitxInputController: IMKInputController {
     menu.addItem(NSMenuItem.separator())
 
     // Additional actions for the current IC
-    let actions = decodeJSON(String(Fcitx.getActions()), [FcitxAction]())
+    let actions = decodeJSON(bridgeString(fcitx_get_actions_c()), [FcitxAction]())
     for action in actions {
       for item in action.toMenuItems(target: self) {
         menu.addItem(item)
@@ -245,38 +244,20 @@ class FcitxInputController: IMKInputController {
     menu.addItem(NSMenuItem.separator())
 
     menu.addItem(
-      withTitle: NSLocalizedString("Input Methods", comment: ""),
-      action: #selector(inputMethod(_:)), keyEquivalent: "")
-    menu.addItem(
-      withTitle: NSLocalizedString("Global Config", comment: ""),
-      action: #selector(globalConfig(_:)), keyEquivalent: "")
-    menu.addItem(
-      withTitle: NSLocalizedString("Theme Editor", comment: ""), action: #selector(themeEditor(_:)),
-      keyEquivalent: "")
-    menu.addItem(
-      withTitle: NSLocalizedString("Plugin Manager", comment: ""), action: #selector(plugin(_:)),
-      keyEquivalent: "")
-    menu.addItem(
-      withTitle: NSLocalizedString("Advanced", comment: ""), action: #selector(advanced(_:)),
-      keyEquivalent: "")
-    menu.addItem(
       withTitle: NSLocalizedString("Restart", comment: ""), action: #selector(restart(_:)),
-      keyEquivalent: "")
-    menu.addItem(
-      withTitle: NSLocalizedString("About Fcitx5 macOS", comment: ""), action: #selector(about(_:)),
       keyEquivalent: "")
     return menu
   }
 
   @objc func switchGroup(sender: Any?) {
     if let groupName = repObjectIMK(sender) as? String {
-      Fcitx.imSetCurrentGroup(groupName)
+      fcitx_im_set_current_group(groupName)
     }
   }
 
   @objc func switchInputMethod(sender: Any?) {
     if let imName = repObjectIMK(sender) as? String {
-      Fcitx.imSetCurrentIM(imName)
+      fcitx_im_set_current_im(imName)
     }
   }
 
@@ -285,7 +266,7 @@ class FcitxInputController: IMKInputController {
       return
     }
     let fromHotkey = lastModifiers.rawValue != 0 && action.hotkey?[0] != nil
-    Fcitx.activateActionById(Int32(action.id), fromHotkey)
+    fcitx_activate_action_by_id_c(Int32(action.id), fromHotkey)
   }
 }
 
@@ -380,5 +361,5 @@ struct FcitxAction: Codable {
 }
 
 func toggleInputMethod() {
-  Fcitx.toggleInputMethod()
+  fcitx_toggle_input_method_c()
 }

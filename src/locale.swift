@@ -14,16 +14,16 @@ func getLocale() -> String {
   let locale = Locale.current
   FCITX_INFO("System locale = \(locale.identifier)")
 
-  if let languageCode = locale.language.languageCode?.identifier {
+  if let languageCode = locale.languageCode {
     if languageCode == "zh" {
-      if let scriptCode = locale.language.script?.identifier {
+      if let scriptCode = locale.scriptCode {
         if scriptCode == "Hans" {
           return "zh_CN"
         } else {
           return "zh_TW"
         }
       }
-      if locale.region?.identifier == "SG" {
+      if locale.regionCode == "SG" {
         return "zh_CN"
       } else {
         return "zh_TW"
